@@ -1,6 +1,6 @@
 import math
 import Point
-
+import copy
 class Trip:
 
     rho_c=6.0
@@ -11,6 +11,7 @@ class Trip:
         self.J = J #J' realocation moves
         self.pi = pi #
         self.k = k #number of drop off points
+
 
     def get_cluster_center(self):
         n = len(self.J)
@@ -58,8 +59,13 @@ class Trip:
         return math.sqrt((point1.u-point2.u)**2+(point1.v-point2.v)**2)/Trip.rho_w+(abs(point1.u-point2.u)+abs(point1.v-point2.v))/Trip.rho_c
 
     def __copy__(self):
-        return Trip(self.J,self.pi,self.k)
+        J_new=copy.deepcopy(self.J)
+        pi_new=copy.deepcopy(self.pi)
+        k_new=copy.deepcopy(self.k)
+        return Trip(J_new,pi_new,k_new)
 
+    def copy(self):
+        return self.__copy__()
     def __str__(self):
         s="J: "
         for j in self.J:

@@ -5,5 +5,6 @@ class Point:
     def __str__(self):
         return f'({self.u},{self.v})'
 
-    #def __copy__(self):
+    def __copy__(self):
+        return Point(self.u,self.v)
 
