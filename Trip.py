@@ -45,6 +45,15 @@ class Trip:
             duration_pure_taxi_trip+=Trip.get_travel_time_drop_off(self.pi[i],self.pi[i+1]) #delta_i1_i2
         return duration_pure_taxi_trip
 
+    def get_array_pure_taxi_trip_drop_off(self):
+        actual_time=0.0
+        duration_pure_taxi_trip_array=[]
+        duration_pure_taxi_trip_array.append(actual_time)
+        for i in range(len(self.pi)-1):
+            actual_time+=Trip.get_travel_time_drop_off(self.pi[i],self.pi[i+1]) #delta_i1_i2
+            duration_pure_taxi_trip_array.append(actual_time)
+        return duration_pure_taxi_trip_array
+
 
     @staticmethod
     def get_travel_time_drop_off(point1,point2):
@@ -55,8 +64,9 @@ class Trip:
             return abs(point1.u-point2.u)/Trip.rho_c
 
     @staticmethod
-    def get_travel_time_relocation_move(point1,point2):
-        return math.sqrt((point1.u-point2.u)**2+(point1.v-point2.v)**2)/Trip.rho_w+(abs(point1.u-point2.u)+abs(point1.v-point2.v))/Trip.rho_c
+    def get_travel_time_relocation_move(realocation_move, drop_off_point):
+        # forse qui quole gamma
+        return math.sqrt((drop_off_point.u - realocation_move.u) ** 2 + (drop_off_point.v - realocation_move.v) ** 2) / Trip.rho_w +(abs(realocation_move.u - drop_off_point.u) + abs(realocation_move.v - drop_off_point.v)) / Trip.rho_c
 
     def __copy__(self):
         J_new=copy.deepcopy(self.J)
