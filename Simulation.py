@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from Point import Point
 class Simulation:
     @staticmethod
     def get_simulation_number(number_simulation):
@@ -28,3 +31,69 @@ class Simulation:
             T_start = 1251
             c = 0.126
             return (n,m,ks,kr,kn,T_start,c)
+
+    @staticmethod
+    def plot_map(realocation_moves,drop_off_points, trips, figsize=(11, 14)):
+        plt.style.use('_mpl-gallery')
+        realocation_moves_x = []
+        realocation_moves_y = []
+        for point in realocation_moves:
+            realocation_moves_x.append(point.u)
+            realocation_moves_y.append(point.v)
+
+        drop_off_points_x = []
+        drop_off_points_y = []
+        for drop_off in drop_off_points:
+            drop_off_points_x.append(drop_off.u)
+            drop_off_points_y.append(drop_off.v)
+
+        # plot
+        fig, ax = plt.subplots(figsize=figsize, dpi=100)
+        ax.scatter(realocation_moves_x, realocation_moves_y, c="r", label='Realocation moves')
+        ax.scatter(drop_off_points_x, drop_off_points_y, c="b", label='Drop off points')
+        # plot trips
+        for idx, trip in enumerate(trips):
+            trip_x = []
+            trip_y = []
+            for drop_off in trip.pi:
+                trip_x.append(drop_off.u)
+                trip_y.append(drop_off.v)
+            ax.plot(trip_x, trip_y, '-', label=f'Trip {idx}')
+            color = ax.get_lines()[idx].get_color()
+            for realocation_move in trip.J:
+                ax.scatter(x=realocation_move.u, y=realocation_move.v, c=color)
+
+        ax.set(xlim=(0, 110),
+               ylim=(0, 140))
+        ax.legend()
+        plt.show()
+
+    @staticmethod
+    def initialize_map(n_realocation_moves):
+        J = []
+        D = []
+        for i in range(n_realocation_moves):
+            x_v = np.random.randint(0, 20)  # random between 0 and 19
+            v0 = 7.125
+            if x_v == 0:
+                v = v0
+            elif x_v == 1:
+                v = v0 + 4.25
+            else:
+                v = v0 + int(x_v % 2) * 4.25 + int(x_v / 2) * 5 + int(x_v / 2) * 8.50
+            x_u = np.random.randint(0, 25)
+            u0 = 7
+            u = u0 + x_u * 4
+
+            J.append(Point(u, v))
+            delta = 4.625
+            delta_2 = 8.875
+
+            v_d = v - delta if int(x_v % 2) == 0 else v + delta
+            v_d_4 = v + delta_2 if int(x_v % 2) == 0 else v - delta_2
+
+            D.append(Point(2.5, v_d))  # D1 (2.5,v_d)
+            D.append(Point(u, v_d))  # D2 (u,v_d)
+            D.append(Point(107.5, v_d))
+            D.append(Point(u, v_d_4))
+        return (J, D)
