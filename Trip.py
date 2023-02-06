@@ -1,5 +1,5 @@
 import math
-import Point
+from Point import Point
 import copy
 class Trip:
 
