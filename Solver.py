@@ -34,7 +34,7 @@ class Solver:
                 pi = np.random.choice(drop_off_points, k, replace=False)  # These drop-off points are randomly chosen
                 pi = pi.tolist()
 
-                # end and start point
+                # end and start depot
                 pi.insert(0, start_point)
                 pi.append(end_point)
 
@@ -55,7 +55,10 @@ class Solver:
 
                 # if I understood well, it means we have to take the closest drop off point to the relocation moves to select in the time duration
 
-            trips_star = copy.deepcopy(trips)  # optimal solution
+            # initialize the optimal solution
+            if t==0:
+                trips_star = copy.deepcopy(trips)
+
             for j in range(kr):
                 T = T_start
                 not_improved = 0
