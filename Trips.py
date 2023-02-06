@@ -43,7 +43,7 @@ class Trips:
         #pi1 = np.random.choice(trip1.pi, 1)[0]  # TODO controllare che non tolga inizio e fine che sono i due depositi
         idx=np.random.choice(range(len(trip1.pi)), 1)[0]
         idx2 = np.random.choice(range(len(trip2.pi)), 1)[0]
-        if idx==0 or idx==len(trip1.pi) or idx2==0 or idx==len(trip2.pi):
+        if idx==0 or idx==len(trip1.pi)-1 or idx2==0 or idx==len(trip2.pi)-1:
             return
         trip1.pi.append(trip2.pi[idx2])
         trip2.pi.append(trip1.pi[idx])
