@@ -3,6 +3,7 @@ from Trips import Trips
 from Trip import Trip
 from Point import Point
 import numpy as np
+import gurobipy as gb
 
 class Solver:
 
@@ -198,3 +199,121 @@ class Solver:
             trips.append(new_trip)
 
         return trips
+
+
+    @staticmethod
+    def sam_matheuristic(n, m,J, D, trips):
+        # I-> trips
+        I = range(len(trips))
+
+        # preparate the variables
+        C = []
+        for i in I:
+            C.append(trips[i].get_pure_taxi_trip())
+
+        delta = np.zeros((len(trips), len(J)))
+
+        for i in I:  # trips
+            trip_time_drop_off_array = trips[i].get_array_pure_taxi_trip_drop_off()
+            for j in range(len(J)):
+                time_plus_realocation = copy.deepcopy(trip_time_drop_off_array)
+                for idx, pi_p in enumerate(trips[i].pi):
+                    realocation_time = Trip.get_travel_time_relocation_move(J[j], pi_p)
+                    time_plus_realocation[idx] += realocation_time
+                delta[i, j] = max(0, min(time_plus_realocation) - C[i])
+
+        sam_mip = gb.Model()
+        sam_mip.modelSense = gb.GRB.MINIMIZE  # declare mimization
+        X = sam_mip.addVars([(i, j) for i in I for j in range(len(J))], vtype=gb.GRB.BINARY)
+        Y = sam_mip.addVars([i for i in I], vtype=gb.GRB.BINARY)
+        b = sam_mip.addVars([i for i in I], lb=0, vtype=gb.GRB.CONTINUOUS)
+
+        # Xi,j==1
+        for j in range(len(J)):
+            sam_mip.addConstr(gb.quicksum(X[i, j] for i in I) == 1)
+        # X(i,j)<=Y(i)*m
+        for i in I:
+            sam_mip.addConstr(gb.quicksum(X[i, j] for j in range(len(J))) <= Y[i] * m)
+
+        for i in I:
+            for j in range(len(J)):
+                # b[i]>=X[i,j]*delta[i,j]
+                sam_mip.addConstr(b[i] >= X[i, j] * delta[i, j])  # delta(i,j)
+
+        sam_mip.setObjective(gb.quicksum(Y[i] * C[i] + b[i] for i in I))
+        sam_mip.optimize()
+
+        # print( "\n", type(X), X, "\n")
+        print("\nSolution")
+
+        print("Binary variables: 1, if relocation move j in J is executed on taxi trip i in I;0, otherwise")
+        for i in I:
+            for j in range(len(J)):
+                if X[i, j].x == 1:  # to access the variable value
+                    print(f'realocation move {j} is executed on taxi trip {i}')
+
+        print("Binary variables: 1, if taxi trip i in I is selected from the pool; 0,otherwise")
+        for i in I:
+            if Y[i].x == 1:  # to access the variable value
+                print(f'taxi trip {i} is selected from the pool')
+
+        copied_trips = copy.deepcopy(trips)
+        realocation_moves = copy.deepcopy(J)
+        for i in I:
+            copied_trips[i].J = []
+            for j in range(len(J)):
+                if X[i, j].x == 1:
+                    copied_trips[i].J.append(realocation_moves[j])
+
+        new_trips = [copied_trips[idx] for idx in range(len(copied_trips)) if Y[idx].x == 1]
+
+        return new_trips
+
+
+    @staticmethod
+    def local_search(trips, J, D, kn):
+        trips_current_solution = copy.deepcopy(trips)
+        not_improved = 0
+        while not_improved < kn:
+            not_improved += 1
+            new_trips = copy.deepcopy(trips_current_solution)
+
+            # select current neighborhood with equal probability
+            selected_indexes_trips = np.random.choice(range(len(new_trips)), 2, replace=False)
+            trip1 = new_trips[selected_indexes_trips[0]].copy()
+            trip2 = new_trips[selected_indexes_trips[1]].copy()
+
+            # select an action
+            n_actions = np.random.randint(0, 5)
+            match n_actions:
+                case 0:
+                    # Swap two relocation moves between two taxi trips
+                    Trips.swap_random_realocation_moves(trip1, trip2)
+                case 1:
+                    # Move a relocation move to another taxi trip
+                    Trips.move_random_realocation_moves(trip1, trip2)
+
+                case 2:
+                    # Remove a drop-off point from a taxi trip
+                    Trips.remove_random_dropoff(trip1)
+
+                case 3:
+                    # Swap two drop-off points between two taxi trips
+                    Trips.swap_random_dropoff(trip1, trip2)
+
+                case 4:
+                    # Add a drop-off point to a taxi trip
+                    pi = np.random.choice(D, 1)[0]
+                    Trips.add_drop_off(trip1, pi)
+
+            new_trips[selected_indexes_trips[0]] = trip1
+            new_trips[selected_indexes_trips[1]] = trip2
+
+            z_trips = Trips.get_total_duration(trips_current_solution)
+            z_new_trips = Trips.get_total_duration(new_trips)
+
+            if (z_new_trips < z_trips):
+                # sc=sn update current
+                trips_current_solution = copy.deepcopy(new_trips)
+                not_improved = 0
+        return trips_current_solution
