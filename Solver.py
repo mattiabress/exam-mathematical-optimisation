@@ -5,6 +5,7 @@ from Point import Point
 import numpy as np
 import gurobipy as gb
 
+
 class Solver:
 
     @staticmethod
@@ -41,7 +42,8 @@ class Solver:
 
                 # the relocation moves are randomly spread between the different trips.
 
-                n_realocation_moves = int(len(J) / n_trips)  # TODO we can improve using the normal distribution to select the right dimension
+                n_realocation_moves = int(
+                    len(J) / n_trips)  # TODO we can improve using the normal distribution to select the right dimension
 
                 J_prime = np.random.choice(realocation_moves, n_realocation_moves, replace=False)
                 J_prime = J_prime.tolist()
@@ -57,7 +59,7 @@ class Solver:
                 # if I understood well, it means we have to take the closest drop off point to the relocation moves to select in the time duration
 
             # initialize the optimal solution
-            if t==0:
+            if t == 0:
                 trips_star = copy.deepcopy(trips)
 
             for j in range(kr):
@@ -200,9 +202,8 @@ class Solver:
 
         return trips
 
-
     @staticmethod
-    def sam_matheuristic(n, m,J, D, trips):
+    def sam_matheuristic(n, m, J, D, trips):
         # I-> trips
         I = range(len(trips))
 
@@ -328,9 +329,13 @@ class Solver:
             new_trips = copy.deepcopy(trips_current_solution)
 
             # select current neighborhood with equal probability
-            selected_indexes_trips = np.random.choice(range(len(new_trips)), 2, replace=False)
-            trip1 = new_trips[selected_indexes_trips[0]].copy()
-            trip2 = new_trips[selected_indexes_trips[1]].copy()
+            if len(new_trips) > 1:
+                selected_indexes_trips = np.random.choice(range(len(new_trips)), 2, replace=False)
+                trip1 = new_trips[selected_indexes_trips[0]].copy()
+                trip2 = new_trips[selected_indexes_trips[1]].copy()
+            else:
+                trip1 = new_trips[0].copy()
+                trip2 = new_trips[0].copy()
 
             # select an action
             n_actions = np.random.randint(0, 5)
