@@ -269,6 +269,55 @@ class Solver:
 
         return new_trips
 
+    @staticmethod
+    def sm_matheuristic(J, D, trips):
+        I = range(len(trips))
+        # to construct theta
+        # TODO Controllare
+        theta = np.zeros((len(trips), len(J)))
+        for i in I:
+            for j in range(len(J)):
+                theta[i, j] = 1 if any(obj.u == J[j].u and J[j].v for obj in trips[i].J) else 0
+
+        C = []
+        for trip in trips:
+            time_pure_taxi_trip = trip.get_pure_taxi_trip()
+            trip_time_drop_off_array = trip.get_array_pure_taxi_trip_drop_off()
+            realocation_move_time_array = []
+
+            for j in trip.J:
+                time_plus_realocation = copy.deepcopy(trip_time_drop_off_array)
+                for idx, pi_p in enumerate(trip.pi):
+                    realocation_move_time = Trip.get_travel_time_relocation_move(j, pi_p)
+                    time_plus_realocation[idx] += realocation_move_time
+
+                realocation_move_time_array.append(min(time_plus_realocation))
+            if realocation_move_time_array != []:
+                time_result = max(time_pure_taxi_trip, max(realocation_move_time_array))
+            else:
+                time_result = max(time_pure_taxi_trip, 0)
+            C.append(time_result)
+
+        sm_mip = gb.Model()
+        sm_mip.modelSense = gb.GRB.MINIMIZE  # declare mimization
+        Y = sm_mip.addVars([i for i in I], vtype=gb.GRB.BINARY)
+        for j in range(len(J)):
+            sm_mip.addConstr(gb.quicksum(Y[i] * theta[i, j] for i in I) >= 1)
+
+        sm_mip.setObjective(gb.quicksum(Y[i] * C[i] for i in I))
+        sm_mip.optimize()
+
+        # print( "\n", type(Y), Y, "\n")
+        # print("\nSolution")
+        #
+        # for i in I:
+        #     if Y[i].x==1:
+        #         print(f'Y[{i}]= {Y[i].x}')
+
+        copied_trips = copy.deepcopy(trips)
+        new_trips = [copied_trips[idx] for idx in range(len(copied_trips)) if Y[idx].x == 1]
+
+        return new_trips
 
     @staticmethod
     def local_search(trips, J, D, kn):
