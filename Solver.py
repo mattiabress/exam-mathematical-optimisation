@@ -52,7 +52,7 @@ class Solver:
                 for j in J_prime:
                     realocation_moves.remove(j)
 
-                trip = Trip(J_prime, pi, k)
+                trip = Trip(J_prime, pi, k,start_point,end_point)
                 trips.append(trip)
                 # Finally, for each trip and its assigned relocation moves, we execute each relocation from the closest drop-off point increasing the trip duration least.
 
@@ -134,7 +134,7 @@ class Solver:
         while len(realocation_moves) > 0:
             drop_off_points = copy.deepcopy(D)
             # initialize a new Trip
-            new_trip = Trip([], [], 0)
+            new_trip = Trip([], [], 0,start_point,end_point)
 
             p = np.floor(n / m) / (np.floor(n / m) + 1)
 
@@ -219,7 +219,7 @@ class Solver:
             for j in range(len(J)):
                 time_plus_realocation = copy.deepcopy(trip_time_drop_off_array)
                 for idx, pi_p in enumerate(trips[i].pi):
-                    realocation_time = Trip.get_travel_time_relocation_move(J[j], pi_p)
+                    realocation_time = Trip.get_travel_time_relocation_move(J[j], pi_p,trips[i].end_depot)
                     time_plus_realocation[idx] += realocation_time
                 delta[i, j] = max(0, min(time_plus_realocation) - C[i])
 
@@ -289,7 +289,7 @@ class Solver:
             for j in trip.J:
                 time_plus_realocation = copy.deepcopy(trip_time_drop_off_array)
                 for idx, pi_p in enumerate(trip.pi):
-                    realocation_move_time = Trip.get_travel_time_relocation_move(j, pi_p)
+                    realocation_move_time = Trip.get_travel_time_relocation_move(j, pi_p,trip.end_depot)
                     time_plus_realocation[idx] += realocation_move_time
 
                 realocation_move_time_array.append(min(time_plus_realocation))
@@ -334,8 +334,9 @@ class Solver:
                 trip1 = new_trips[selected_indexes_trips[0]].copy()
                 trip2 = new_trips[selected_indexes_trips[1]].copy()
             else:
-                trip1 = new_trips[0].copy()
-                trip2 = new_trips[0].copy()
+                selected_indexes_trips=[0,0]
+                trip1 = new_trips[selected_indexes_trips[0]].copy()
+                trip2 = new_trips[selected_indexes_trips[1]].copy()
 
             # select an action
             n_actions = np.random.randint(0, 5)
@@ -371,3 +372,130 @@ class Solver:
                 trips_current_solution = copy.deepcopy(new_trips)
                 not_improved = 0
         return trips_current_solution
+
+
+    @staticmethod
+    def trptr_problem(n, m, realocation_moves, drop_off_points, start_point, end_point):
+        K = range(0, int(np.ceil(n / (np.ceil((m + 1) / 2)))))
+        R = range(0, m)
+        J = range(0, n)
+        D = range(len(drop_off_points))
+        central_depot_s = start_point
+        central_depot_e = end_point
+        M = 1000
+
+        trptr_mip = gb.Model()
+        trptr_mip.modelSense = gb.GRB.MINIMIZE
+
+        # Variables
+        t = trptr_mip.addVars([(k, i) for k in K for i in D], lb=0, vtype=gb.GRB.CONTINUOUS)
+        C = trptr_mip.addVars([k for k in K], lb=0, vtype=gb.GRB.CONTINUOUS)
+        S = trptr_mip.addVars([(k, i, p) for k in K for i in D for p in R], vtype=gb.GRB.BINARY)
+        Y = trptr_mip.addVars([(j, i) for j in J for i in D], vtype=gb.GRB.BINARY)
+        X = trptr_mip.addVars([(k, j) for k in K for j in J], vtype=gb.GRB.BINARY)
+
+        # Contraints
+        # X(k,j)=1
+        for j in J:
+            trptr_mip.addConstr(gb.quicksum(X[k, j] for k in K) == 1)
+        # Y(j,i)=1
+        for j in J:
+            trptr_mip.addConstr(gb.quicksum(Y[j, i] for i in D) == 1)
+        # X[k,j]<=m
+        for k in K:
+            trptr_mip.addConstr(gb.quicksum(X[k, j] for j in J) <= m)
+
+        # X[k,j]+Y[j,i]<=1+sum_p S[k,i,p]
+        for k in K:
+            for j in J:
+                for i in D:
+                    trptr_mip.addConstr(X[k, j] + Y[j, i] <= 1 + gb.quicksum(S[k, i, p] for p in R))
+
+        # Contraint on S[k,i,p]
+
+        # S[k,i,p]<=1
+        for k in K:
+            for p in R:
+                trptr_mip.addConstr(gb.quicksum(S[k, i, p] for i in D) <= 1)
+        # S[k,i,p]<=1
+        for k in K:
+            for i in D:
+                trptr_mip.addConstr(gb.quicksum(S[k, i, p] for p in R) <= 1)
+        # S[k,i,p]<=S[k,i,p-1]
+        for k in K:
+            for p in [x for x in R if x != 0]:
+                trptr_mip.addConstr(gb.quicksum(S[k, i, p] for i in D) <= gb.quicksum(S[k, i, p - 1] for i in D))
+
+        # t's constraints
+        # t[k,i]>=S[k,i,1]*delta[start,i]
+        for k in K:
+            for i in D:
+                # trptr_mip.addConstr(t[k,i]>=S[k,i,1]*delta[central_depot_s,i])
+                trptr_mip.addConstr(
+                    t[k, i] >= S[k, i, 1] * Trip.get_travel_time_drop_off(central_depot_s, drop_off_points[i]))
+
+        for k in K:
+            for i1 in D:
+                for i2 in [x for x in D if x != i1]:  # D\{i1}
+                    for p in [x for x in R if x != 0]:
+                        # trptr_mip.addConstr(t[k,i2]>=t[k,i1]-M*(2-S[k,i1,p-1]-S[k,i2,p])+delta[i1,i2])
+                        trptr_mip.addConstr(t[k, i2] >= t[k, i1] - M * (
+                                    2 - S[k, i1, p - 1] - S[k, i2, p]) + Trip.get_travel_time_drop_off(
+                            drop_off_points[i1], drop_off_points[i2]))
+
+        # C's constraints
+        for k in K:
+            for j in J:
+                for i in D:
+                    # trptr_mip.addConstr(C[k]>=t[k,i]-M*(2-X[k,j]-Y[j,i])+d[j,i])
+                    trptr_mip.addConstr(
+                        C[k] >= t[k, i] - M * (2 - X[k, j] - Y[j, i]) + Trip.get_travel_time_relocation_move(
+                            realocation_moves[j], drop_off_points[i],end_point))
+
+        for k in K:
+            for i in D:
+                # trptr_mip.addConstr(C[k]>=t[k,i]-M*(1-gb.quicksum(S[k,i,p] for p in R))+delta[i,central_depot_e])
+                trptr_mip.addConstr(
+                    C[k] >= t[k, i] - M * (1 - gb.quicksum(S[k, i, p] for p in R)) + Trip.get_travel_time_drop_off(
+                        drop_off_points[i], central_depot_e))
+        # C[k]<C[k-1]
+        for k in [x for x in K if x != 0]:
+            trptr_mip.addConstr(C[k] <= C[k - 1])
+
+        # Objective function
+        trptr_mip.setObjective(gb.quicksum(C[k] for k in K))
+        # Solution
+        trptr_mip.optimize()
+        # print("\nSolution")
+        #
+        # for k in K:
+        #     for i in D:
+        #         for p in R:
+        #             if S[k,i,p].x==1:
+        #                 print(f' S[{k},{i},{p}]=1 dropoff={drop_off_points[i]}')
+        #
+        # for j in J:
+        #     for i in D:
+        #         if Y[j,i].x==1:
+        #             print(f'Y[{j},{i}]=1  realocation move={realocation_moves[j]}, dropoff={drop_off_points[i]}')
+        #
+        # for k in K:
+        #     print(f'C{C[k].x}')
+
+        trips = []
+
+        for k in K:
+            trip = Trip([], [], 0,start_point,end_point)
+            for j in J:
+                if X[k, j].x == 1:
+                    trip.J.append(realocation_moves[j])
+            for p in R:
+                for i in D:
+                    if S[k, i, p].x == 1:
+                        trip.pi.append(drop_off_points[i])
+                        trip.k += 1
+            trip.pi.insert(0, start_point)
+            trip.pi.append(end_point)
+            trips.append(trip)
+
+        return trips

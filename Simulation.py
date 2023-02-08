@@ -65,6 +65,25 @@ class Simulation:
 
         ax.set(xlim=(0, 110),
                ylim=(0, 140))
+
+        # Major ticks every 20, minor ticks every 5
+        major_ticks_x = np.arange(0, 110, 20)
+        minor_ticks_x = np.arange(0, 110, 5)
+        major_ticks_y = np.arange(0, 140, 20)
+        minor_ticks_y = np.arange(0, 140, 5)
+
+        ax.set_xticks(major_ticks_x)
+        ax.set_xticks(minor_ticks_x, minor=True)
+        ax.set_yticks(major_ticks_y)
+        ax.set_yticks(minor_ticks_y, minor=True)
+
+        # And a corresponding grid
+        ax.grid(which='both')
+
+        # Or if you want different settings for the grids:
+        ax.grid(which='minor', alpha=0.2)
+        ax.grid(which='major', alpha=0.5)
+
         ax.legend()
         plt.show()
 
