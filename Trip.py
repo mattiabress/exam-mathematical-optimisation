@@ -34,6 +34,7 @@ class Trip:
     def trip_duration(self):
 
         time_pure_taxi_trip = self.get_pure_taxi_trip()
+        #print(f'pure taxi trip time={time_pure_taxi_trip}')
         trip_time_drop_off_array = self.get_array_pure_taxi_trip_drop_off()
         realocation_move_times = []
 
@@ -42,8 +43,11 @@ class Trip:
             for idx, pi_p in enumerate(self.pi):
                 realocation_move_time = Trip.get_travel_time_relocation_move(j, pi_p,self.end_depot)
                 time_plus_realocation[idx] += realocation_move_time
-
             realocation_move_times.append(min(time_plus_realocation))
+            # test mode
+            min_index = time_plus_realocation.index(min(time_plus_realocation))
+            #print(f'j={j} pi= {self.pi[min_index]}')
+
         if len(realocation_move_times)==0:
             return max(time_pure_taxi_trip,0)
         return max(time_pure_taxi_trip, max(realocation_move_times))
@@ -68,13 +72,14 @@ class Trip:
     def get_travel_time_drop_off(point1,point2):
         travel_time=0.0
         if point1.v!=point2.v:
-            return (min(point1.u+point2.u,2*Trip.omega-point1.u-point2.u)+abs(point1.v-point2.v))/Trip.rho_c
+            return ( min(point1.u+point2.u, 2*Trip.omega-point1.u-point2.u) +abs(point1.v-point2.v) )/Trip.rho_c
         else:
             return abs(point1.u-point2.u)/Trip.rho_c
 
     @staticmethod
     def get_travel_time_relocation_move(realocation_move, drop_off_point,end_depot):
-        return math.sqrt((drop_off_point.u - realocation_move.u) ** 2 + (drop_off_point.v - realocation_move.v) ** 2) / Trip.rho_w +(abs(realocation_move.u - end_depot.u) + abs(realocation_move.v - end_depot.v)) / Trip.rho_c
+
+        return math.sqrt((drop_off_point.u - realocation_move.u) ** 2 + (drop_off_point.v - realocation_move.v) ** 2) /Trip.rho_w +(abs(realocation_move.u - end_depot.u) + abs(realocation_move.v - end_depot.v)) / Trip.rho_c
 
     def __copy__(self):
         J_new=copy.deepcopy(self.J)
@@ -95,3 +100,34 @@ class Trip:
             s+=f'{pi} '
         s+=f'k={self.k}'
         return s
+
+
+    @staticmethod
+    def getM(m, J, D, start_point, end_point):
+
+        max_distances_start_point = 0.0
+        for i in D:
+            actual_distance = Trip.get_travel_time_drop_off(start_point, i)
+            max_distances_start_point = actual_distance if actual_distance > max_distances_start_point else max_distances_start_point
+
+        max_distances_end_point = 0.0
+        for i in D:
+            actual_distance = Trip.get_travel_time_drop_off(i, end_point)
+            max_distances_end_point = actual_distance if actual_distance > max_distances_end_point else max_distances_end_point
+
+        max_distance_two_points = 0.0
+        for i1 in D:
+            for i2 in D:
+                actual_distance = Trip.get_travel_time_drop_off(i1, i2)
+                max_distance_two_points = actual_distance if actual_distance > max_distance_two_points else max_distance_two_points
+
+        max_distance_realocation_move_drop_off = 0.0
+        for j in J:
+            for i in D:
+                actual_distance = Trip.get_travel_time_relocation_move(j, i, end_point)
+                max_distance_realocation_move_drop_off = actual_distance if actual_distance > max_distance_realocation_move_drop_off else max_distance_realocation_move_drop_off
+
+        total = max_distances_start_point + max_distances_end_point + (
+                    1 - m) * max_distance_two_points + max_distance_realocation_move_drop_off
+
+        return int(total)

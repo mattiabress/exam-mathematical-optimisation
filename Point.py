@@ -16,6 +16,12 @@ class Point:
 
         return self.u == other.u and self.v == other.v
 
+    def __hash__(self):
+        return hash((self.u, self.v))
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @staticmethod
     def remove_from_list(list_points, selected_point):
         new_list = []

@@ -19,8 +19,8 @@ class Trips:
 
     # Move a relocation move to another taxi trip
     @staticmethod
-    def move_random_realocation_moves(current_trip, destination_trip):
-        if current_trip.J == []:
+    def move_random_realocation_moves(current_trip, destination_trip,m):
+        if current_trip.J == [] or len(destination_trip.J)==m:
             return
         j1 = np.random.choice(current_trip.J, 1)[0]
         destination_trip.J.append(j1)
@@ -57,11 +57,49 @@ class Trips:
         trip.pi.insert(len(trip.pi) - 1, pi)
         trip.k += 1
 
-        # Add a drop-off point to a taxi trip
-
     @staticmethod
     def get_total_duration(trips):
         duration = 0
         for trip in trips:
-            duration += trip.trip_duration()  # TODO sistemare
+            duration += trip.trip_duration()
+
         return duration
+
+    @staticmethod
+    def is_taxi_trips(trips,J,m):
+        test_passed=True
+        union_list=[]
+        i=0
+        while i < len(trips) :
+            for j in trips[i].J:
+                union_list.append(j)
+            i+=1
+        test_passed=len(union_list)==len(J)
+        if test_passed==False:
+            print("Problem related: that is over all all trips all relocation moves are not executed ")
+            return test_passed
+        i=0
+        while i<len(trips) and test_passed:
+            current_trip=trips[i]
+            j=i+1
+            while j<len(trips) and test_passed:
+                intersaction=list(set(current_trip.J) & set(trips[j].J))
+                test_passed=len(intersaction)==0
+                j+=1
+            i+=1
+
+        if test_passed==False:
+            print("Problem related: Realocation moves serviced multiple times ")
+            return test_passed
+        i=0
+        while i<len(trips) and test_passed:
+            test_passed=test_passed and len(trips[i].J)<=m
+            i+=1
+
+        if test_passed==False:
+            print("Problem related: Each relocator executes at most one car relocation move per trip ")
+            return test_passed
+        return test_passed
+
+
+

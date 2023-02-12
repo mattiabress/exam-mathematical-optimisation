@@ -29,34 +29,31 @@ class Solver:
 
             # set initial current state sc
             n_trips = int(np.ceil(n / (np.ceil((m + 1) / 2))))
-            trips = []
+            trips = Solver.cc_procedure(n, m, J, D, start_point, end_point)
 
-            for i in range(n_trips):
-                k = np.random.randint(1, m + 1)  # number of drop-off points
-                pi = np.random.choice(drop_off_points, k, replace=False)  # These drop-off points are randomly chosen
-                pi = pi.tolist()
-
-                # end and start depot
-                pi.insert(0, start_point)
-                pi.append(end_point)
-
-                # the relocation moves are randomly spread between the different trips.
-
-                n_realocation_moves = int(
-                    len(J) / n_trips)  # TODO we can improve using the normal distribution to select the right dimension
-
-                J_prime = np.random.choice(realocation_moves, n_realocation_moves, replace=False)
-                J_prime = J_prime.tolist()
-                if i == n_trips - 1:
-                    J_prime = copy.deepcopy(realocation_moves)
-                for j in J_prime:
-                    realocation_moves.remove(j)
-
-                trip = Trip(J_prime, pi, k,start_point,end_point)
-                trips.append(trip)
-                # Finally, for each trip and its assigned relocation moves, we execute each relocation from the closest drop-off point increasing the trip duration least.
-
-                # if I understood well, it means we have to take the closest drop off point to the relocation moves to select in the time duration
+            # for i in range(n_trips):
+            #     k = np.random.randint(1, m + 1)  # number of drop-off points
+            #     pi = np.random.choice(drop_off_points, k, replace=False)  # These drop-off points are randomly chosen
+            #     pi = pi.tolist()
+            #
+            #     # end and start depot
+            #     pi.insert(0, start_point)
+            #     pi.append(end_point)
+            #
+            #     # the relocation moves are randomly spread between the different trips.
+            #
+            #     n_realocation_moves = int(
+            #         len(J) / n_trips)  # TODO we can improve using the normal distribution to select the right dimension
+            #
+            #     J_prime = np.random.choice(realocation_moves, n_realocation_moves, replace=False)
+            #     J_prime = J_prime.tolist()
+            #     if i == n_trips - 1:
+            #         J_prime = copy.deepcopy(realocation_moves)
+            #     for j in J_prime:
+            #         realocation_moves.remove(j)
+            #
+            #     trip = Trip(J_prime, pi, k,start_point,end_point)
+            #     trips.append(trip)
 
             # initialize the optimal solution
             if t == 0:
@@ -83,7 +80,7 @@ class Solver:
                             Trips.swap_random_realocation_moves(trip1, trip2)
                         case 1:
                             # Move a relocation move to another taxi trip
-                            Trips.move_random_realocation_moves(trip1, trip2)
+                            Trips.move_random_realocation_moves(trip1, trip2,m)
 
                         case 2:
                             # Remove a drop-off point from a taxi trip
@@ -174,7 +171,7 @@ class Solver:
             pi_l = np.random.choice(drop_off_points, 1, probability)[0]
 
             new_trip.pi.append(start_point)
-            new_trip.pi.append(pi_l)  # pi={pi_l} #TODO  sistemare con un metodo
+            new_trip.pi.append(pi_l)  # pi={pi_l}
             new_trip.pi.append(end_point)
             new_trip.k = 1
 
@@ -203,7 +200,7 @@ class Solver:
         return trips
 
     @staticmethod
-    def sam_matheuristic(n, m, J, D, trips):
+    def sam_matheuristic(n, m, J, D, trips,time_limit=60):
         # I-> trips
         I = range(len(trips))
 
@@ -225,6 +222,7 @@ class Solver:
 
         sam_mip = gb.Model()
         sam_mip.modelSense = gb.GRB.MINIMIZE  # declare mimization
+        sam_mip.setParam(gb.GRB.Param.TimeLimit, time_limit)
         X = sam_mip.addVars([(i, j) for i in I for j in range(len(J))], vtype=gb.GRB.BINARY)
         Y = sam_mip.addVars([i for i in I], vtype=gb.GRB.BINARY)
         b = sam_mip.addVars([i for i in I], lb=0, vtype=gb.GRB.CONTINUOUS)
@@ -271,10 +269,9 @@ class Solver:
         return new_trips
 
     @staticmethod
-    def sm_matheuristic(J, D, trips):
+    def sm_matheuristic(J, D, trips,time_limit=60):
         I = range(len(trips))
         # to construct theta
-        # TODO Controllare
         theta = np.zeros((len(trips), len(J)))
         for i in I:
             for j in range(len(J)):
@@ -301,6 +298,7 @@ class Solver:
 
         sm_mip = gb.Model()
         sm_mip.modelSense = gb.GRB.MINIMIZE  # declare mimization
+        sm_mip.setParam(gb.GRB.Param.TimeLimit, time_limit)
         Y = sm_mip.addVars([i for i in I], vtype=gb.GRB.BINARY)
         for j in range(len(J)):
             sm_mip.addConstr(gb.quicksum(Y[i] * theta[i, j] for i in I) >= 1)
@@ -321,7 +319,7 @@ class Solver:
         return new_trips
 
     @staticmethod
-    def local_search(trips, J, D, kn):
+    def local_search(n,m,J, D, kn,trips):
         trips_current_solution = copy.deepcopy(trips)
         not_improved = 0
         while not_improved < kn:
@@ -346,7 +344,7 @@ class Solver:
                     Trips.swap_random_realocation_moves(trip1, trip2)
                 case 1:
                     # Move a relocation move to another taxi trip
-                    Trips.move_random_realocation_moves(trip1, trip2)
+                    Trips.move_random_realocation_moves(trip1, trip2,m)
 
                 case 2:
                     # Remove a drop-off point from a taxi trip
@@ -375,17 +373,18 @@ class Solver:
 
 
     @staticmethod
-    def trptr_problem(n, m, realocation_moves, drop_off_points, start_point, end_point):
+    def trptr_problem(n, m, realocation_moves, drop_off_points, start_point, end_point,time_limit=300):
         K = range(0, int(np.ceil(n / (np.ceil((m + 1) / 2)))))
         R = range(0, m)
         J = range(0, n)
         D = range(len(drop_off_points))
         central_depot_s = start_point
         central_depot_e = end_point
-        M = 1000
+        M = Trip.getM(m,realocation_moves,drop_off_points,start_point,end_point)
 
         trptr_mip = gb.Model()
         trptr_mip.modelSense = gb.GRB.MINIMIZE
+        trptr_mip.setParam(gb.GRB.Param.TimeLimit, time_limit)
 
         # Variables
         t = trptr_mip.addVars([(k, i) for k in K for i in D], lb=0, vtype=gb.GRB.CONTINUOUS)
@@ -395,6 +394,7 @@ class Solver:
         X = trptr_mip.addVars([(k, j) for k in K for j in J], vtype=gb.GRB.BINARY)
 
         # Contraints
+
         # X(k,j)=1
         for j in J:
             trptr_mip.addConstr(gb.quicksum(X[k, j] for k in K) == 1)
@@ -411,28 +411,31 @@ class Solver:
                 for i in D:
                     trptr_mip.addConstr(X[k, j] + Y[j, i] <= 1 + gb.quicksum(S[k, i, p] for p in R))
 
+
+
         # Contraint on S[k,i,p]
 
         # S[k,i,p]<=1
         for k in K:
             for p in R:
                 trptr_mip.addConstr(gb.quicksum(S[k, i, p] for i in D) <= 1)
+
         # S[k,i,p]<=1
         for k in K:
             for i in D:
                 trptr_mip.addConstr(gb.quicksum(S[k, i, p] for p in R) <= 1)
+
         # S[k,i,p]<=S[k,i,p-1]
         for k in K:
             for p in [x for x in R if x != 0]:
-                trptr_mip.addConstr(gb.quicksum(S[k, i, p] for i in D) <= gb.quicksum(S[k, i, p - 1] for i in D))
+                trptr_mip.addConstr(gb.quicksum(S[k, i, p] for i in D)  <= gb.quicksum(S[k, i, p - 1] for i in D))
 
         # t's constraints
-        # t[k,i]>=S[k,i,1]*delta[start,i]
+        # t[k,i]>=S[k,i,0]*delta[start,i]
         for k in K:
             for i in D:
-                # trptr_mip.addConstr(t[k,i]>=S[k,i,1]*delta[central_depot_s,i])
                 trptr_mip.addConstr(
-                    t[k, i] >= S[k, i, 1] * Trip.get_travel_time_drop_off(central_depot_s, drop_off_points[i]))
+                    t[k, i] >= S[k, i, 0] * Trip.get_travel_time_drop_off(central_depot_s, drop_off_points[i]))
 
         for k in K:
             for i1 in D:
@@ -454,9 +457,7 @@ class Solver:
 
         for k in K:
             for i in D:
-                # trptr_mip.addConstr(C[k]>=t[k,i]-M*(1-gb.quicksum(S[k,i,p] for p in R))+delta[i,central_depot_e])
-                trptr_mip.addConstr(
-                    C[k] >= t[k, i] - M * (1 - gb.quicksum(S[k, i, p] for p in R)) + Trip.get_travel_time_drop_off(
+                trptr_mip.addConstr(C[k] >= t[k, i] - M * (1 - gb.quicksum(S[k, i, p] for p in R)) + Trip.get_travel_time_drop_off(
                         drop_off_points[i], central_depot_e))
         # C[k]<C[k-1]
         for k in [x for x in K if x != 0]:
@@ -470,17 +471,22 @@ class Solver:
         #
         # for k in K:
         #     for i in D:
-        #         for p in R:
+        #         if t[k,i].x!=0:
+        #             print(f't[{k},{i}]={t[k,i].x}  drop_off={drop_off_points[i]}')
+        # print("")
+        # for k in K:
+        #     for p in R:
+        #         for i in D:
         #             if S[k,i,p].x==1:
         #                 print(f' S[{k},{i},{p}]=1 dropoff={drop_off_points[i]}')
-        #
+        # print("")
         # for j in J:
         #     for i in D:
         #         if Y[j,i].x==1:
         #             print(f'Y[{j},{i}]=1  realocation move={realocation_moves[j]}, dropoff={drop_off_points[i]}')
-        #
+        # print("")
         # for k in K:
-        #     print(f'C{C[k].x}')
+        #     print(f'C[{k}]={C[k].x}')
 
         trips = []
 
