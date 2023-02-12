@@ -9,8 +9,6 @@ import gurobipy as gb
 class Solver:
 
     @staticmethod
-    # FIX IT
-    # TODO error when n=10, m=1 because n_realocation_moves becomes 0 so all trips have 0 reallocation moves except the last one which has all reallocation moves
     def sa_approach(n, m, ks, kr, kn, T_start, c, J, D, start_point, end_point):
         # ks -> number of restarts
         # kr -> number of rehats
@@ -28,32 +26,8 @@ class Solver:
             drop_off_points = copy.deepcopy(D)
 
             # set initial current state sc
-            n_trips = int(np.ceil(n / (np.ceil((m + 1) / 2))))
             trips = Solver.cc_procedure(n, m, J, D, start_point, end_point)
 
-            # for i in range(n_trips):
-            #     k = np.random.randint(1, m + 1)  # number of drop-off points
-            #     pi = np.random.choice(drop_off_points, k, replace=False)  # These drop-off points are randomly chosen
-            #     pi = pi.tolist()
-            #
-            #     # end and start depot
-            #     pi.insert(0, start_point)
-            #     pi.append(end_point)
-            #
-            #     # the relocation moves are randomly spread between the different trips.
-            #
-            #     n_realocation_moves = int(
-            #         len(J) / n_trips)  # TODO we can improve using the normal distribution to select the right dimension
-            #
-            #     J_prime = np.random.choice(realocation_moves, n_realocation_moves, replace=False)
-            #     J_prime = J_prime.tolist()
-            #     if i == n_trips - 1:
-            #         J_prime = copy.deepcopy(realocation_moves)
-            #     for j in J_prime:
-            #         realocation_moves.remove(j)
-            #
-            #     trip = Trip(J_prime, pi, k,start_point,end_point)
-            #     trips.append(trip)
 
             # initialize the optimal solution
             if t == 0:
@@ -114,7 +88,7 @@ class Solver:
                         exp_lambda = (z_new_trips - z_trips) / T
                         if abs(exp_lambda) > np.finfo(float).eps:
                             exponential_sample = np.random.exponential(
-                                1.0 / exp_lambda)  # TODO sistemare calcolo probabilità
+                                1.0 / exp_lambda)
                             trips = new_trips if exponential_sample < 1.0 / exp_lambda else trips  # sc=sn if probability else sc
                     T = T * c
         return trips_star
