@@ -21,7 +21,6 @@ class Solver:
 
         for t in range(ks):
             # generate random feasible solution
-            # print(t)
             realocation_moves = copy.deepcopy(J)
             drop_off_points = copy.deepcopy(D)
 
@@ -41,11 +40,17 @@ class Solver:
                     not_improved += 1
 
                     # Sn= neighbour of current state Sc
-                    selected_indexes_trips = np.random.choice(range(len(new_trips)), 2, replace=False)
-                    selected_indexes_trips = selected_indexes_trips.tolist()
-                    trip1 = copy.deepcopy(new_trips[selected_indexes_trips[0]])
-                    trip2 = copy.deepcopy(new_trips[selected_indexes_trips[1]])
+                    if len(new_trips) > 1:
+                        selected_indexes_trips = np.random.choice(range(len(new_trips)), 2, replace=False)
+                        selected_indexes_trips = selected_indexes_trips.tolist()
+                        trip1 = copy.deepcopy(new_trips[selected_indexes_trips[0]])
+                        trip2 = copy.deepcopy(new_trips[selected_indexes_trips[1]])
+                    else:
+                        selected_indexes_trips = [0, 0]
+                        trip1 = new_trips[selected_indexes_trips[0]].copy()
+                        trip2 = new_trips[selected_indexes_trips[1]].copy()
 
+                    # select current neighborhood with equal probability
                     # select an action
                     n_actions = np.random.randint(0, 5)
                     match n_actions:
@@ -117,7 +122,7 @@ class Solver:
             j = realocation_moves[np.random.randint(0, len(realocation_moves))]  # len(J) = |J|
             # update
             new_trip.J.append(j)  # J'={j}
-            realocation_moves.remove(j)  # J=J\{j}   P= (u_j^c,v_j^c)
+            realocation_moves.remove(j)  # J=J\{j}
 
             while len(new_trip.J) < n_hat and len(realocation_moves) != 0:
                 p = []
@@ -194,6 +199,7 @@ class Solver:
                     time_plus_realocation[idx] += realocation_time
                 delta[i, j] = max(0, min(time_plus_realocation) - C[i])
 
+        # initialize the Gurobi problem
         sam_mip = gb.Model()
         sam_mip.modelSense = gb.GRB.MINIMIZE  # declare mimization
         sam_mip.setParam(gb.GRB.Param.TimeLimit, time_limit)
