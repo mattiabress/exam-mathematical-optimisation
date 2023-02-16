@@ -6,6 +6,9 @@
 * ``conda install --yes ipython jupyterlab``
 * ``pip install matplotlib``
 * ``pip install numpy``
+## Version
+* Python 3.9.7
+* Gurobi 9.5.1
 
 ## Code
 ### Classes

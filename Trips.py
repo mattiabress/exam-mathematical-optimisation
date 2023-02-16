@@ -32,7 +32,9 @@ class Trips:
         if trip.pi == []:
             return
         idx = np.random.choice(range(len(trip.pi)), 1)[0]
-        if idx == 0 or idx == len(trip.pi) - 1:
+        if idx == 0 or idx == len(trip.pi) - 1: # if I try to remove the start and finish, I can't do it
+            return
+        if len(trip.J)>0 and len(trip.pi)==3: # if contains at least one J and only one drop off point I can't remove it
             return
         trip.pi.remove(trip.pi[idx])
         trip.k -= 1

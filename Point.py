@@ -9,6 +9,7 @@ class Point:
     def __copy__(self):
         return Point(self.u, self.v)
 
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Point):
             # don't attempt to compare against unrelated types

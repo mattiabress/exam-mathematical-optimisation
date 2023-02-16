@@ -59,6 +59,9 @@ class Simulation:
                 trip_x.append(drop_off.u)
                 trip_y.append(drop_off.v)
             ax.plot(trip_x, trip_y, '-', label=f'Trip {idx}')
+            for i in range(len(trip_x)-1):
+                ax.arrow(trip_x[i], trip_y[i], trip_x[i+1] - trip_x[i], trip_y[i+1] - trip_y[i],head_width=1, length_includes_head=True)
+
             color = ax.get_lines()[idx].get_color()
             for realocation_move in trip.J:
                 ax.scatter(x=realocation_move.u, y=realocation_move.v, c=color)

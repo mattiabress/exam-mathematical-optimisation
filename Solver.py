@@ -27,7 +27,6 @@ class Solver:
             # set initial current state sc
             trips = Solver.cc_procedure(n, m, J, D, start_point, end_point)
 
-
             # initialize the optimal solution
             if t == 0:
                 trips_star = copy.deepcopy(trips)
@@ -89,12 +88,11 @@ class Solver:
                         if (z_trips < z_trips_star):
                             trips_star = copy.deepcopy(trips)
                     else:
-                        # with probability exp() assign sc=sn
                         exp_lambda = (z_new_trips - z_trips) / T
                         if abs(exp_lambda) > np.finfo(float).eps:
                             exponential_sample = np.random.exponential(
                                 1.0 / exp_lambda)
-                            trips = new_trips if exponential_sample < 1.0 / exp_lambda else trips  # sc=sn if probability else sc
+                            trips = new_trips if exponential_sample < 1.0 / exp_lambda else trips
                     T = T * c
         return trips_star
 
@@ -153,27 +151,26 @@ class Solver:
             new_trip.pi.append(pi_l)  # pi={pi_l}
             new_trip.pi.append(end_point)
             new_trip.k = 1
-
             drop_off_points.remove(pi_l)  # D=D\{pi_l}
             # calculate total duration C of taxi trip pi according to relocation J'
-            C = new_trip.trip_duration()
             while len(drop_off_points) != 0:
                 # determine drop-off point q in D which decreases C most
+                C = new_trip.trip_duration()
+                C_star=C
                 q_min = None
                 for q in drop_off_points:
                     new_trip.pi.insert(len(new_trip.pi) - 1, q)
                     C_new = new_trip.trip_duration()
-                    if C_new < C:
+                    if C_new < C_star:
+                        C_star = C_new
                         q_min = q
                     new_trip.pi.remove(q)
-
-                if (q_min != None):
+                if (not (q_min is None)):
                     new_trip.pi.insert(len(new_trip.pi) - 1, q_min)
                     new_trip.k += 1
                     drop_off_points.remove(q_min)
                 else:
                     drop_off_points = []
-
             trips.append(new_trip)
 
         return trips
@@ -189,15 +186,17 @@ class Solver:
             C.append(trips[i].get_pure_taxi_trip())
 
         delta = np.zeros((len(trips), len(J)))
-
         for i in I:  # trips
             trip_time_drop_off_array = trips[i].get_array_pure_taxi_trip_drop_off()
             for j in range(len(J)):
                 time_plus_realocation = copy.deepcopy(trip_time_drop_off_array)
-                for idx, pi_p in enumerate(trips[i].pi):
+                for idx, pi_p in enumerate(trips[i].pi[1:-1]):
                     realocation_time = Trip.get_travel_time_relocation_move(J[j], pi_p,trips[i].end_depot)
                     time_plus_realocation[idx] += realocation_time
-                delta[i, j] = max(0, min(time_plus_realocation) - C[i])
+                if len(time_plus_realocation)>0:
+                    delta[i, j] = max(0, min(time_plus_realocation) - C[i])
+                else:
+                    delta[i, j] = max(0, 0.0 - C[i])
 
         # initialize the Gurobi problem
         sam_mip = gb.Model()
@@ -255,7 +254,7 @@ class Solver:
         theta = np.zeros((len(trips), len(J)))
         for i in I:
             for j in range(len(J)):
-                theta[i, j] = 1 if any(obj.u == J[j].u and J[j].v for obj in trips[i].J) else 0
+                theta[i, j] = 1 if len( [x for x in trips[i].J if x.u==J[j].u and x.v==J[j].v] )>0 else 0
 
         C = []
         for trip in trips:
@@ -265,11 +264,11 @@ class Solver:
 
             for j in trip.J:
                 time_plus_realocation = copy.deepcopy(trip_time_drop_off_array)
-                for idx, pi_p in enumerate(trip.pi):
+                for idx, pi_p in enumerate(trip.pi[1:-1]):
                     realocation_move_time = Trip.get_travel_time_relocation_move(j, pi_p,trip.end_depot)
                     time_plus_realocation[idx] += realocation_move_time
 
-                realocation_move_time_array.append(min(time_plus_realocation))
+                realocation_move_time_array.append(min(time_plus_realocation) if len(time_plus_realocation)>0 else 0)
             if realocation_move_time_array != []:
                 time_result = max(time_pure_taxi_trip, max(realocation_move_time_array))
             else:
@@ -390,8 +389,6 @@ class Solver:
             for j in J:
                 for i in D:
                     trptr_mip.addConstr(X[k, j] + Y[j, i] <= 1 + gb.quicksum(S[k, i, p] for p in R))
-
-
 
         # Contraint on S[k,i,p]
 
