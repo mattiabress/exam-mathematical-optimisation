@@ -1,13 +1,13 @@
 # Exam of Mathematical Optimisation
 ## Initialize environment
-* `` conda create --name examMO python=3.9``
+* `` conda create --name examMO python=3.10``
 * `` conda activate examMO ``
 
 * ``conda install --yes ipython jupyterlab``
 * ``pip install matplotlib``
 * ``pip install numpy``
 ## Version
-* Python 3.9.7
+* Python 3.10
 * Gurobi 9.5.1
 
 ## Code
